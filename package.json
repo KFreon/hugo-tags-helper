@@ -1,21 +1,25 @@
 {
   "name": "hugo-tags-helper",
-  "displayName": "Hugo Tags Helper",
+  "displayName": "Blog Tags Helper",
   "description": "Provides minor intellisense when using tags in frontmatter",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "publisher": "kaellarkin",
   "repository": {
     "url": "https://github.com/KFreon/hugo-tags-helper.git",
     "type": "git"
   },
   "engines": {
-    "vscode": "^1.41.1"
+    "vscode": "^1.106.0"
   },
   "categories": [
     "Other"
   ],
   "keywords": [
-    "Hugo"
+    "Blog",
+    "Hugo",
+    "markdown",
+    "tags",
+    "frontmatter"
   ],
   "activationEvents": [
     "onLanguage:markdown"
@@ -24,13 +28,28 @@
     "commands": [
       {
         "command": "hugo-tags-helper.regenerateTags",
-        "title": "Regenerate Hugo Tags"
+        "title": "Regenerate Blog Tags"
       },
       {
         "command": "hugo-tags-helper.test",
-        "title": "DONOTUSE: Parse hugo tags in this document"
+        "title": "DONOTUSE: Parse blog tags in this document"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Blog Tags Helper",
+      "properties": {
+        "blogTagsHelper.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable the Blog Tags Helper extension"
+        },
+        "blogTagsHelper.fileGlobPattern": {
+          "type": "string",
+          "default": "**/index.md",
+          "description": "Glob pattern to find markdown files with frontmatter (e.g., 'src/posts/**/*.md', 'content/**/*.md')"
+        }
+      }
+    }
   },
   "icon": "icon.png",
   "main": "./out/extension.js",
@@ -48,18 +67,17 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src",
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.41.1",
-    "@types/mocha": "^10.0.6",
-    "@types/node": "18.x",
-    "@typescript-eslint/eslint-plugin": "^7.4.0",
-    "@typescript-eslint/parser": "^7.4.0",
-    "eslint": "^8.57.0",
-    "typescript": "^5.3.3",
-    "@vscode/test-cli": "^0.0.8",
-    "@vscode/test-electron": "^2.3.9"
+    "@types/vscode": "^1.106.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.46.3",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
   }
 }
