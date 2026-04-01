@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { getTagsFromFile, parseTags } from '../extension';
+import { isPositionInTagsFrontmatter } from '../HugoTagsHelperProvider';
 
 // Mock output channel for tests
 class MockOutputChannel implements vscode.OutputChannel {
@@ -286,6 +287,85 @@ Post content`;
 			const tags = parseTags(tagLines);
 			
 			assert.deepStrictEqual(tags.sort(), ['Hardware', 'Work']);
+		});
+	});
+
+	suite('isPositionInTagsFrontmatter', () => {
+		function createDocument(content: string): vscode.TextDocument {
+			const lines = content.split(/\r?\n/);
+			return {
+				lineCount: lines.length,
+				lineAt(lineOrPosition: number | vscode.Position): vscode.TextLine {
+					const lineNumber = typeof lineOrPosition === 'number' ? lineOrPosition : lineOrPosition.line;
+					return {
+						lineNumber,
+						text: lines[lineNumber],
+						range: new vscode.Range(lineNumber, 0, lineNumber, lines[lineNumber].length),
+						rangeIncludingLineBreak: new vscode.Range(lineNumber, 0, lineNumber, lines[lineNumber].length),
+						firstNonWhitespaceCharacterIndex: lines[lineNumber].search(/\S|$/),
+						isEmptyOrWhitespace: lines[lineNumber].trim().length === 0
+					};
+				}
+			} as vscode.TextDocument;
+		}
+
+		function positionForSubstring(content: string, substring: string): { document: vscode.TextDocument; position: vscode.Position } {
+			const offset = content.indexOf(substring);
+			assert.notStrictEqual(offset, -1, `Expected to find substring: ${substring}`);
+
+			const document = createDocument(content);
+			const contentBeforePosition = content.slice(0, offset + substring.length);
+			const linesBeforePosition = contentBeforePosition.split(/\r?\n/);
+			return {
+				document,
+				position: new vscode.Position(linesBeforePosition.length - 1, linesBeforePosition[linesBeforePosition.length - 1].length)
+			};
+		}
+
+		test('returns true for YAML tag entries inside frontmatter', () => {
+			const content = `---
+title: Example
+tags:
+- 'Hardw'
+---
+
+Body content`;
+
+			const { document, position } = positionForSubstring(content, "- 'Hardw'");
+			assert.strictEqual(isPositionInTagsFrontmatter(document, position), true);
+		});
+
+		test('returns true for inline tag arrays inside frontmatter', () => {
+			const content = `---
+title: Example
+tags: ['Hardw']
+---`;
+
+			const { document, position } = positionForSubstring(content, "['Hardw'");
+			assert.strictEqual(isPositionInTagsFrontmatter(document, position), true);
+		});
+
+		test('returns false for quotes in markdown body after frontmatter tags', () => {
+			const content = `---
+title: Example
+tags: ['Hardware']
+---
+
+This paragraph has a 'quote' in it.`;
+
+			const { document, position } = positionForSubstring(content, "'quote'");
+			assert.strictEqual(isPositionInTagsFrontmatter(document, position), false);
+		});
+
+		test('returns false for other frontmatter properties', () => {
+			const content = `---
+title: 'Example'
+description: 'A quoted description'
+tags: ['Hardware']
+---`;
+
+			const { document, position } = positionForSubstring(content, "'A quoted description'");
+			assert.strictEqual(isPositionInTagsFrontmatter(document, position), false);
 		});
 	});
 });
