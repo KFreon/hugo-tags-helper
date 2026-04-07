@@ -3,6 +3,100 @@ import { knownBlogTagsKey } from './extension';
 
 export const supportedTagsStart = ["tags:", "tags=", "tags ="];
 
+const topLevelFrontmatterPropertyPattern = /^[A-Za-z0-9_-]+\s*[:=]/;
+
+function getFrontmatterBounds(document: vscode.TextDocument): { start: number; end: number } | undefined {
+	if (document.lineCount < 3) {
+		return undefined;
+	}
+
+	const openingDelimiter = document.lineAt(0).text.trim();
+	if (openingDelimiter !== '---' && openingDelimiter !== '+++') {
+		return undefined;
+	}
+
+	for (let lineIndex = 1; lineIndex < document.lineCount; lineIndex++) {
+		if (document.lineAt(lineIndex).text.trim() === openingDelimiter) {
+			return { start: 0, end: lineIndex };
+		}
+	}
+
+	return undefined;
+}
+
+export function isPositionInTagsFrontmatter(document: vscode.TextDocument, position: vscode.Position): boolean {
+	const bounds = getFrontmatterBounds(document);
+	if (!bounds || position.line <= bounds.start || position.line >= bounds.end) {
+		return false;
+	}
+
+	let inYamlTags = false;
+	let inArrayTags = false;
+
+	for (let lineIndex = bounds.start + 1; lineIndex <= position.line; lineIndex++) {
+		const lineText = document.lineAt(lineIndex).text;
+		const trimmed = lineText.trim();
+
+		if (inArrayTags) {
+			if (lineIndex === position.line) {
+				return !trimmed.startsWith(']');
+			}
+
+			if (trimmed.includes(']')) {
+				inArrayTags = false;
+			}
+
+			continue;
+		}
+
+		if (topLevelFrontmatterPropertyPattern.test(lineText)) {
+			inYamlTags = false;
+
+			const trimmedStart = lineText.trimStart();
+			const isTagsStart = supportedTagsStart.some((supportedStart) => trimmedStart.startsWith(supportedStart));
+			if (!isTagsStart) {
+				continue;
+			}
+
+			const openBracketIndex = lineText.indexOf('[');
+			const closeBracketIndex = lineText.indexOf(']');
+			if (openBracketIndex !== -1) {
+				if (lineIndex === position.line) {
+					return position.character > openBracketIndex && (closeBracketIndex === -1 || position.character <= closeBracketIndex);
+				}
+
+				inArrayTags = closeBracketIndex === -1;
+				continue;
+			}
+
+			if (trimmedStart.endsWith(':')) {
+				if (lineIndex === position.line) {
+					return false;
+				}
+
+				inYamlTags = true;
+			}
+
+			continue;
+		}
+
+		if (!inYamlTags) {
+			continue;
+		}
+
+		const trimmedStart = lineText.trimStart();
+		if (lineIndex === position.line) {
+			return trimmedStart.startsWith('-');
+		}
+
+		if (trimmed.length > 0 && !trimmedStart.startsWith('-') && !trimmedStart.startsWith('#')) {
+			inYamlTags = false;
+		}
+	}
+
+	return false;
+}
+
 export class HugoTagsHelperProvider implements vscode.CompletionItemProvider {
 	private workspaceState: vscode.Memento;
 	private outputChannel: vscode.OutputChannel;
@@ -21,29 +115,9 @@ export class HugoTagsHelperProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		// I can't figure out how to get vscode to tell me that we're in a tags array.
-		// Surely there's a way, but I'm stuck with this manual stuff.
-		let lineIdx = position.line;
-		let line: vscode.TextLine | undefined = undefined;
-		while(lineIdx >= 0) {
-			line = document.lineAt(lineIdx);
-			const trimmed = line.text.trimStart();
-			const isStartOfTags = supportedTagsStart.some(x => trimmed.startsWith(x));
-			const isEndOfTags = line.text.includes(']');
-
-			// We're in it so good to go
-			if (isStartOfTags) {
-				this.outputChannel.appendLine(`[BlogTagsHelper] Found tags start at line ${lineIdx}`);
-				break;
-			}
-
-			// We're after the tags array
-			if (isEndOfTags && lineIdx < position.line) {
-				this.outputChannel.appendLine(`[BlogTagsHelper] Found tags end before position at line ${lineIdx}, not in tags array`);
-				return [];
-			}
-			
-			lineIdx--;
+		if (!isPositionInTagsFrontmatter(document, position)) {
+			this.outputChannel.appendLine('[BlogTagsHelper] Position is outside the tags section in frontmatter, skipping');
+			return [];
 		}
 
 		const tags = this.workspaceState.get<string[]>(knownBlogTagsKey, []);

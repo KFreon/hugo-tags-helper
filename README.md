@@ -1,4 +1,5 @@
-# Blog Tags Helper  
+# Blog Tags Helper
+
 Simple extension to stop me accidentally duplicating tags.  
 When on the `tags:` line of frontmatter, this extension will suggest previously used tags.  
 
@@ -24,12 +25,11 @@ To configure, add the settings to your workspace or user settings:
 ```
 
 ## Notes  
-- Currently only supporting `---` frontmatter definitions  
-- Expects single line `tags:`  
+
+- Supports frontmatter delimited by `---` or `+++`  
+- Supports single-line and multiline array-style `tags:`  
 - Can be used with any static site generator (Hugo, Jekyll, Gatsby, etc.)
 
+## Future
 
-
-// handle +++
-// handle multi-line tags array
-// Can we do anything tricky with the language server?
+- Can we do anything tricky with the language server?
